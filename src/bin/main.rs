@@ -1,7 +1,8 @@
 extern crate crispy;
 
-use crispy::some::run;
+use crispy::run;
 
 fn main() {
-    run();
+    std::env::set_var("RUST_BACKTRACE", "1");
+    pollster::block_on(run());
 }
