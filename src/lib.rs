@@ -1,6 +1,8 @@
 pub mod render;
+pub mod world;
 
-use render::basic_render::BasicRenderer;
+use nalgebra::{vector, Vector};
+use render::ray_trace_render::RayTraceRender;
 use winit::{
     dpi::PhysicalSize,
     event::*,
@@ -10,6 +12,8 @@ use winit::{
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+
+use crate::world::{scene::Scene, sphere::Sphere};
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
@@ -25,23 +29,30 @@ pub async fn run() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    #[cfg(target_arch = "wasm32")]
-    {
-        use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(450, 400));
-        use winit::platform::web::WindowExtWebSys;
-        web_sys::window()
-            .and_then(|win| win.document())
-            .and_then(|doc| {
-                let dst = doc.get_element_by_id("crispy_window")?;
-                let canvas = web_sys::Element::from(window.canvas());
-                dst.append_child(&canvas).ok()?;
-                Some(())
-            })
-            .expect("Couldn't append canvas to document body.");
-    }
+    // #[cfg(target_arch = "wasm32")]
+    // {
+    //     use winit::dpi::PhysicalSize;
+    //     window.set_inner_size(PhysicalSize::new(450, 400));
+    //     use winit::platform::web::WindowExtWebSys;
+    //     web_sys::window()
+    //         .and_then(|win| win.document())
+    //         .and_then(|doc| {
+    //             let dst = doc.get_element_by_id("crispy_window")?;
+    //             let canvas = web_sys::Element::from(window.canvas());
+    //             dst.append_child(&canvas).ok()?;
+    //             Some(())
+    //         })
+    //         .expect("Couldn't append canvas to document body.");
+    // }
 
-    let mut renderer = BasicRenderer::new(window).await;
+    let mut renderer = RayTraceRender::new(window).await;
+
+    let mut scene = Scene {
+        spheres: vec![Sphere {
+            pos: vector![0.0, 0.0, 0.0],
+            radius: 5.0,
+        }],
+    };
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -72,7 +83,7 @@ pub async fn run() {
         }
         Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
             renderer.update();
-            match renderer.render() {
+            match renderer.render(&scene) {
                 Ok(_) => {}
                 Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size),
                 Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
